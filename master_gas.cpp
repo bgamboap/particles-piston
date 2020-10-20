@@ -8,19 +8,22 @@
 #include <unistd.h>
 #include <cmath>
 #include <omp.h>
+#include <cstring>
 
 
-#define NUMTHREADS 12
+#define NUMTHREADS 1
 
-#define AVERAGES  2000    //numero de sistemas que simularei e posteriormente farei médias dos parametros
-#define gamma   5000   // gamma e o quociente entre a massa da parede movel e a massa de uma molecula do gas
-#define NL 1000
-#define NR 1000
+#define AVERAGES  1    //numero de sistemas que simularei e posteriormente farei médias dos parametros
+#define gamma   5000  // gamma e o quociente entre a massa da parede movel e a massa de uma molecula do gas
+#define NL 10
+#define NR 0
 #define TL 20
 #define TR 100
-#define iters 37000 // numero de medidas que farei, numero de deltas nos quais medirei a Temperatura
+#define iters 10 // numero de medidas que farei, numero de deltas nos quais medirei a Temperatura
 #define deltat 0.01 //delta no qual meço a temperatura 
 #define XM_ini 0.10
+#define g 1.0
+#define len NL*10
 
 using namespace std;
 class Sistema {
@@ -64,7 +67,8 @@ public:
     std::array<int, 624> seed_data;
     std::generate(seed_data.begin(), seed_data.end(), std::ref(r));
     std::seed_seq seq(std::begin(seed_data), std::end(seed_data));
-    rng.seed(seq);
+    //rng.seed(seq);
+    rng.seed(4);
 
     distribuir_posicoes_r();
     distribuir_posicoes_l();
@@ -87,20 +91,20 @@ public:
   void distribuir_velocidades_r(double T)
   {
     for(unsigned i = 0; i < Nr ; i++)
-      {
-	vr[i] = sqrt(T) * gauss(rng);
-	eneg_r += 0.5*vr[i]*vr[i];
-      }
+    {
+	    vr[i] = sqrt(T) * gauss(rng);
+	    eneg_r += 0.5*vr[i]*vr[i];
+    }
     
   }
   
   void distribuir_velocidades_l(double T)
   {
     for(unsigned i = 0; i < Nl ; i++)
-      {
-	vl[i] = sqrt(T) * gauss(rng);
-	eneg_l += 0.5*vl[i]*vl[i];
-      }
+    {
+	    vl[i] = sqrt(T) * gauss(rng);
+	    eneg_l += 0.5*vl[i]*vl[i];
+    }
   }
 
   void reset(double Tl, double Tr)
@@ -141,28 +145,44 @@ public:
 
     for(unsigned i = 0; i < Nl ; i++)
       {
-        double t0 = (xl[i]-xM)/(vM-vl[i]); // Colisao com o movel
+        //std::cout << xl[i] << " ";
+        
+        double a = - 0.5 * g;
+        double b = - (vM-vl[i]);
+        double c = (xl[i]-xM);
+        
+        //double t0 =  (xl[i]-xM)/(vM-vl[i]);
         double t1 = (-1*xl[i])/(vl[i]); // Colisao com a parede estatica
-
-        if(t0 > 0 && t0 < tl)
-          {
-            tl = t0;
-            il = i;
-          }
-	
         if(t1 > 0 && t1 < tl )
-          {
-            tl = t1;
-            il = i;
+        {
+          tl = t1;
+          il = i;
+        }
+          
+        if(b*b >= 4*a*c){
+          double t0_1 = (-b + std::pow(b * b - 4 * a * c,0.5)) / (2 * a); // Colisao com o movel
+          double t0_2 = (-b - std::pow(b * b - 4 * a * c,0.5)) / (2 * a);
+          double t0 = t0_1;
+          if(t0_2 < t0 && t0_2 > 0){
+            t0 = t0_2;
           }
+
+          if(t0 > 0 && t0 < tl)
+            {
+              tl = t0;
+              il = i;
+            }
+        }
       }
+
 
     // Evoluir
     tt = ( tr < tl ? tr : tl )*0.99999999 ;
     tempo += tt;
 
 
-    xM += vM*tt;
+    xM += vM*tt - 0.5 * g * tt * tt;
+    vM -= g * tt;
     for(unsigned i = 0; i < Nr ; i++)
       xr[i] += vr[i]*tt;
     for(unsigned i = 0; i < Nl ; i++)
@@ -171,51 +191,51 @@ public:
     // Colidir
     
     if(tr < tl ) //coilidiu no lado direito
+    {
+      // OU colide na parede em 1 ou na parede movel
+      if( fabs(xr[ir] - 1.) <  0.01)
       {
-        // OU colide na parede em 1 ou na parede movel
-        if( fabs(xr[ir] - 1.) <  0.01)
-	  {
-	    // colidiu com a parede
-	    vr[ir] = - vr[ir];
-	  
-	    dpl=0;
-	    dpr=fabs(2*vr[ir]); //variação de momento da parede estatica direita
-	    dpM=0;
-	  }
-	
-        else
-          {
-	    double vk = vr[ir];
-	    vr[ir] = (2 * vM * gamma + vr[ir]*(1-gamma))/(gamma + 1);
-            eneg_r += 0.5*(pow(vr[ir],2) - vk*vk);
-            vM = (2 * vk  + vM*(gamma - 1))/(gamma + 1);
-	    
-	    dpl=0;
-	    dpr=0;
-	    dpM=gamma*(vM-vMi);
-          }
+        // colidiu com a parede
+        vr[ir] = - vr[ir];
+      
+        dpl=0;
+        dpr=fabs(2*vr[ir]); //variação de momento da parede estatica direita
+        dpM=0;
       }
+	
+      else // colidiu com o movel
+      { 
+        double vk = vr[ir];
+        vr[ir] = (2 * vM * gamma + vr[ir]*(1-gamma))/(gamma + 1);
+        eneg_r += 0.5*(pow(vr[ir],2) - vk*vk);
+        vM = (2 * vk  + vM*(gamma - 1))/(gamma + 1);
+        
+        dpl=0;
+        dpr=0;
+        dpM=gamma*(vM-vMi);
+      }
+    }
     else    //colidiu no lado esquerdo
+    {
+      if( fabs(xl[il] - 0.) <  0.00001)	  // colidiu com a parede estatica esquerda
       {
-        if( fabs(xl[il] - 0.) <  0.01)	  // colidiu com a parede estatica esquerda
-	  {
-	    vl[il] = - vl[il];
-	    dpl=fabs(2*vl[il]);
-	    dpr=0;
-	    dpM=0;
-	  }
-	
-        else
-          {
-	    double vk = vl[il];	
-	    vl[il] = (2 * vM*gamma + vl[il] *(1-gamma))/(gamma + 1);
-	    eneg_l += 0.5*(pow(vl[il],2) - vk*vk);
-	    vM = (2 * vk  + vM*(gamma - 1))/(gamma + 1);
-	    dpl=0;
-	    dpr=0;
-	    dpM=gamma*(vM-vMi);
-          }
+        vl[il] = - vl[il];
+        dpl=fabs(2*vl[il]);
+        dpr=0;
+        dpM=0;
       }
+	
+      else
+      {
+        double vk = vl[il];	
+        vl[il] = (2 * vM*gamma + vl[il] *(1-gamma))/(gamma + 1);
+        eneg_l += 0.5*(pow(vl[il],2) - vk*vk);
+        vM = (2 * vk  + vM*(gamma - 1))/(gamma + 1);
+        dpl=0;
+        dpr=0;
+        dpM=gamma*(vM-vMi);
+      }
+    }
     
   }
 
@@ -244,6 +264,14 @@ public:
    double posicaoM()
   {
     return xM;
+  }
+
+  void posicao_xl(double *posicoes){
+    for(unsigned i=0; i < NL; i++){
+      posicoes[i] = xl[i];
+    }
+
+
   }
 
   double delta_mom_r()
@@ -275,7 +303,16 @@ int main() {
   double *Pr       = new double[iters];   // Pressão direita
   double *Fm       = new double[iters];   //Força na parede
   double *Xm       = new double[iters];   //Posiçao da parede
+  double xl[iters][NL];
 
+  for (unsigned i=0; i<iters; i++)
+    {
+      for (unsigned j=0; j<NL; j++)
+      {
+        xl[i][j] = 0.;
+      }
+    }
+  
   
   for(unsigned i = 1; i < iters ; i++)
     { 
@@ -301,7 +338,18 @@ int main() {
     double *Pl_private = new double[iters]();
     double *Fm_private = new double[iters]();
     double *Xm_private = new double[iters]();
+
+    double xl_private[iters][NL];
+    double xl_temp[NL];
     
+    for (unsigned i=0; i<iters; i++)
+    {
+      for (unsigned j=0; j<NL; j++)
+      {
+        xl_private[i][j] = 0.;
+      }
+    }
+
     double dpRt;
     dpRt=0;
     double dpLt;
@@ -327,14 +375,21 @@ int main() {
                   
                 Temp_old_r = s.energiaR();
                 Temp_old_l = s.energiaL();
-                X_old = s.posicaoM();
                 
+
                 dpRt+=s.delta_mom_r();
                 dpLt+=s.delta_mom_l();
                 DeltapM+=s.delta_mom_M();
                 
                 s.evolucao();
               }
+
+            X_old = s.posicaoM();
+            s.posicao_xl(xl_temp);
+
+            for(unsigned n = 0; n < NL; n++){
+              xl_private[i][n] += xl_temp[n]; 
+            }
             
             Tl_private[i] += Temp_old_l;
             Tr_private[i] += Temp_old_r;
@@ -358,7 +413,11 @@ int main() {
         Pr[kk] += Pr_private[kk]/deltat;
         Fm[kk] += Fm_private[kk]/deltat;
         Xm[kk] += Xm_private[kk];
-        
+
+        for(unsigned n = 0; n<NL; n++){
+          xl[kk][n] += xl_private[kk][n]/medidas;
+        }
+
       }
     
   }
@@ -384,24 +443,47 @@ int main() {
   char name3[100];
   sprintf(name3,"XM_xmi%.2f_Nr%dNl%dTr%dTl%dgamma%diters%dmedidas%ddeltat%.3f.dat", XM_ini, NR , NL, TR, TL, gamma, iters, medidas, deltat);
 
-  output1 = fopen(name1, "a");
-  output2 = fopen(name2, "a");
-  output3 = fopen(name3, "a");
+  FILE *output4;
+  char name4[100];
+  sprintf(name4,"posxl_xmi%.2f_Nr%dNl%dTr%dTl%dgamma%diters%dmedidas%ddeltat%.3f.dat", XM_ini, NR , NL, TR, TL, gamma, iters, medidas, deltat);
 
+  output1 = fopen(name1, "w");
+  output2 = fopen(name2, "w");
+  output3 = fopen(name3, "w");
+  output4 = fopen(name4, "w");
+
+  
+
+  char string[len];
   for(unsigned k = 0 ; k < iters ; k++)
     {
+      
+      strcpy(string, "");
         
         fprintf(output1, "%f  %f  %f  \n", tempos[k] , Tl[k] , Tr[k] );
         
         fprintf(output2, "%f  %f  %f  %f  \n", temposP[k] , Pl[k] , Pr[k] , Fm[k] );
         
         fprintf(output3, "%f  %f  \n", tempos[k] , Xm[k] );
+
+        char strin2[10];
+       
+        for(unsigned n = 0; n < NL; n++){
+          sprintf(strin2, "%f ",xl[k][n]);
+          strcat(string, strin2);
+        }
+        strcat(string, "\n");
+
+        fprintf(output4, string);
+
+
     }
     
     
   fclose(output1);
   fclose(output2);
   fclose(output3);
+  fclose(output4);
   
   auto end = chrono::steady_clock::now();
   
