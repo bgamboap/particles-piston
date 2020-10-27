@@ -15,11 +15,11 @@
 
 #define AVERAGES  1    //numero de sistemas que simularei e posteriormente farei médias dos parametros
 #define gamma   5000  // gamma e o quociente entre a massa da parede movel e a massa de uma molecula do gas
-#define NL 10
+#define NL 30
 #define NR 0
 #define TL 20
 #define TR 100
-#define iters 10 // numero de medidas que farei, numero de deltas nos quais medirei a Temperatura
+#define iters 10000 // numero de medidas que farei, numero de deltas nos quais medirei a Temperatura
 #define deltat 0.01 //delta no qual meço a temperatura 
 #define XM_ini 0.10
 #define g 1.0
@@ -194,7 +194,7 @@ public:
     if(tr < tl ) //coilidiu no lado direito
     {
       // OU colide na parede em 1 ou na parede movel
-      if( fabs(xr[ir] - 1.) <  0.01)https://www.youtube.com/watch?v=m3lF2qEA2cw&list=PLkwgZOc3uF6JJbG0SD5DE_npilHDlxjd_&index=4
+      if( fabs(xr[ir] - 1.) <  0.01)
       {
         // colidiu com a parede
         vr[ir] = - vr[ir];
@@ -218,7 +218,7 @@ public:
     }
     else    //colidiu no lado esquerdo
     {
-      if( fabs(xl[il] - 0.) <  0.00001)	  // colidiu com a parede estatica esquerda
+      if( fabs(xl[il] - 0.) <  0.001)	  // colidiu com a parede estatica esquerda
       {
         vl[il] = - vl[il];
         dpl=fabs(2*vl[il]);
@@ -315,7 +315,12 @@ int main() {
   double *Pr       = new double[iters];   // Pressão direita
   double *Fm       = new double[iters];   //Força na parede
   double *Xm       = new double[iters];   //Posiçao da parede
+
   double xl[iters][NL];
+
+  //double **xl, **vl;
+  //xl = new 
+
   double vl[iters][NL];
   //double *timeiter = new double[iters];
 
