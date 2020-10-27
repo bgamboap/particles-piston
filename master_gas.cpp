@@ -15,11 +15,11 @@
 
 #define AVERAGES  1    //numero de sistemas que simularei e posteriormente farei médias dos parametros
 #define gamma   5000  // gamma e o quociente entre a massa da parede movel e a massa de uma molecula do gas
-#define NL 10
+#define NL 30
 #define NR 0
 #define TL 20
 #define TR 100
-#define iters 10 // numero de medidas que farei, numero de deltas nos quais medirei a Temperatura
+#define iters 10000 // numero de medidas que farei, numero de deltas nos quais medirei a Temperatura
 #define deltat 0.01 //delta no qual meço a temperatura 
 #define XM_ini 0.10
 #define g 1.0
@@ -42,6 +42,7 @@ public:
   double *vl;   // velocidade da esquerda
   double eneg_l;
   double eneg_r;
+  double tt;
   std::uniform_real_distribution <double> dist;
   std::normal_distribution<double>       gauss;
   std::mt19937 rng;
@@ -122,7 +123,7 @@ public:
   
   void evolucao() {
     
-    double tr = 1.E10, tl = 1.E10, tt;
+    double tr = 1.E10, tl = 1.E10; //,tt
     double vMi=vM;
     int ir, il;
     for(unsigned i = 0; i < Nr ; i++)
@@ -217,7 +218,7 @@ public:
     }
     else    //colidiu no lado esquerdo
     {
-      if( fabs(xl[il] - 0.) <  0.00001)	  // colidiu com a parede estatica esquerda
+      if( fabs(xl[il] - 0.) <  0.001)	  // colidiu com a parede estatica esquerda
       {
         vl[il] = - vl[il];
         dpl=fabs(2*vl[il]);
@@ -260,7 +261,12 @@ public:
   {
     return tempo;
   }
-
+  /*
+  double tempoit()
+  {
+    return tt;
+  }
+  */
    double posicaoM()
   {
     return xM;
@@ -270,8 +276,14 @@ public:
     for(unsigned i=0; i < NL; i++){
       posicoes[i] = xl[i];
     }
+  }
 
-
+  void velocidade_vl(double *velocidades)
+  {
+    for(unsigned i=0; i < NL; i++)
+    {
+      velocidades[i] = vl[i];
+    }
   }
 
   double delta_mom_r()
@@ -303,13 +315,21 @@ int main() {
   double *Pr       = new double[iters];   // Pressão direita
   double *Fm       = new double[iters];   //Força na parede
   double *Xm       = new double[iters];   //Posiçao da parede
+
   double xl[iters][NL];
+
+  //double **xl, **vl;
+  //xl = new 
+
+  double vl[iters][NL];
+  //double *timeiter = new double[iters];
 
   for (unsigned i=0; i<iters; i++)
     {
       for (unsigned j=0; j<NL; j++)
       {
         xl[i][j] = 0.;
+        vl[i][j] = 0.;
       }
     }
   
@@ -331,6 +351,7 @@ int main() {
     double Temp_old_r;
     double Temp_old_l;
     double X_old;
+    //double t_old;
     
     double *Tr_private = new double[iters]();
     double *Tl_private = new double[iters]();
@@ -338,15 +359,20 @@ int main() {
     double *Pl_private = new double[iters]();
     double *Fm_private = new double[iters]();
     double *Xm_private = new double[iters]();
+    //double *ts_private = new double[iters]();    
 
     double xl_private[iters][NL];
     double xl_temp[NL];
+
+    double vl_private[iters][NL];
+    double vl_temp[NL];
     
     for (unsigned i=0; i<iters; i++)
     {
       for (unsigned j=0; j<NL; j++)
       {
         xl_private[i][j] = 0.;
+        vl_private[i][j] = 0.;
       }
     }
 
@@ -361,7 +387,7 @@ int main() {
     s.distribuir_velocidades_l(TL);
     s.distribuir_velocidades_r(TR);
     
-#pragma omp for
+    #pragma omp for
     for(unsigned j = 0; j < medidas; j++)
       {
 
@@ -386,9 +412,12 @@ int main() {
 
             X_old = s.posicaoM();
             s.posicao_xl(xl_temp);
+            s.velocidade_vl(vl_temp);
+            //t_old = s.tempoit();
 
             for(unsigned n = 0; n < NL; n++){
               xl_private[i][n] += xl_temp[n]; 
+              vl_private[i][n] += vl_temp[n]; 
             }
             
             Tl_private[i] += Temp_old_l;
@@ -397,6 +426,7 @@ int main() {
             Pl_private[i] += dpLt;
             Fm_private[i] += DeltapM;
             Xm_private[i] += X_old;
+            //ts_private[i] += t_old;
             
             dpRt=0;
             dpLt=0;
@@ -404,7 +434,7 @@ int main() {
           }
       }
     
-#pragma omp critical
+    #pragma omp critical
     for (unsigned kk = 0; kk < iters; kk++)
       {
         Tl[kk] += Tl_private[kk];
@@ -413,9 +443,11 @@ int main() {
         Pr[kk] += Pr_private[kk]/deltat;
         Fm[kk] += Fm_private[kk]/deltat;
         Xm[kk] += Xm_private[kk];
+        //timeiter[kk] += ts_private[kk];
 
         for(unsigned n = 0; n<NL; n++){
           xl[kk][n] += xl_private[kk][n]/medidas;
+          vl[kk][n] += vl_private[kk][n]/medidas;
         }
 
       }
@@ -429,6 +461,7 @@ int main() {
       Pr[jj] = Pr[jj]/medidas;
       Fm[jj] = Fm[jj]/medidas;
       Xm[jj] = Xm[jj]/medidas;
+      //timeiter[jj] = timeiter[jj]/medidas;
     }
   
   FILE *output1;
@@ -445,20 +478,32 @@ int main() {
 
   FILE *output4;
   char name4[100];
-  sprintf(name4,"posxl_xmi%.2f_Nr%dNl%dTr%dTl%dgamma%diters%dmedidas%ddeltat%.3f.dat", XM_ini, NR , NL, TR, TL, gamma, iters, medidas, deltat);
+  sprintf(name4,"Posicoes_xl_xmi%.2f_Nr%dNl%dTr%dTl%dgamma%diters%dmedidas%ddeltat%.3f.dat", XM_ini, NR , NL, TR, TL, gamma, iters, medidas, deltat);
 
+  FILE *output5;
+  char name5[100];
+  sprintf(name5,"Velocidades_vl_xmi%.2f_Nr%dNl%dTr%dTl%dgamma%diters%dmedidas%ddeltat%.3f.dat", XM_ini, NR , NL, TR, TL, gamma, iters, medidas, deltat);
+  /*
+  FILE *output6;
+  char name6[100];
+  sprintf(name6,"Tempos_vl_xmi%.2f_Nr%dNl%dTr%dTl%dgamma%diters%dmedidas%ddeltat%.3f.dat", XM_ini, NR , NL, TR, TL, gamma, iters, medidas, deltat);
+  */
   output1 = fopen(name1, "w");
   output2 = fopen(name2, "w");
   output3 = fopen(name3, "w");
   output4 = fopen(name4, "w");
+  output5 = fopen(name5, "w");
+  //output6 = fopen(name6, "w");
 
   
 
   char string[len];
+  char stringV[len];
   for(unsigned k = 0 ; k < iters ; k++)
     {
       
       strcpy(string, "");
+      strcpy(stringV, "");
         
         fprintf(output1, "%f  %f  %f  \n", tempos[k] , Tl[k] , Tr[k] );
         
@@ -466,17 +511,26 @@ int main() {
         
         fprintf(output3, "%f  %f  \n", tempos[k] , Xm[k] );
 
+        //fprintf(output6, "%f  %f  \n", tempos[k] ,  );
+
         char strin2[10];
-       
+        char strin2V[10];
+
         for(unsigned n = 0; n < NL; n++){
+          //posicoes
           sprintf(strin2, "%f ",xl[k][n]);
           strcat(string, strin2);
-        }
-        strcat(string, "\n");
 
+          //velocidades
+          sprintf(strin2V, "%f ",vl[k][n]);
+          strcat(stringV, strin2V);
+        }
+        
+        strcat(string, "\n");
         fprintf(output4, string);
 
-
+        strcat(stringV, "\n");
+        fprintf(output5, stringV);
     }
     
     
@@ -484,6 +538,7 @@ int main() {
   fclose(output2);
   fclose(output3);
   fclose(output4);
+  fclose(output5);
   
   auto end = chrono::steady_clock::now();
   
