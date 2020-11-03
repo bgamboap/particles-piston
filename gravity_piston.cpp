@@ -50,8 +50,8 @@ int main(int argc, char** argv){
     vM = -0.1;
     xL = (Eigen::Array<double, -1, -1>::Random(NL, 1) + 1.0)/2.0*xM*0.99;
     xR = (Eigen::Array<double, -1, -1>::Random(NR, 1) + 1.0)/2.0*(1-xM)*0.99 + xM;
-    vL = Eigen::Array<double, -1, -1>::Random(NL, 1);
-    vR = Eigen::Array<double, -1, -1>::Random(NR, 1);
+    vL = Eigen::Array<double, -1, -1>::Random(NL, 1)*0+1;
+    vR = Eigen::Array<double, -1, -1>::Random(NR, 1)*0+1;
 
 
     double t = 0; // time variable
