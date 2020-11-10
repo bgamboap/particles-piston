@@ -1,6 +1,6 @@
 #include <iostream>
 #include <fstream>
-#include <Eigen/Dense>
+#include <eigen3/Eigen/Dense>
 
 #define inf 999999.9
 #define DEBUG 0
@@ -34,8 +34,8 @@ int main(int argc, char** argv){
     Eigen::Array<double, -1, -1> xL(NL,1), xR(NR,1), vL(NL,1), vR(NR,1); //positions and velocities
     Eigen::Array<double, -1, -1> col_timesL(NL,1), col_timesR(NR,1), col_timesPL(NL,1), col_timesPR(NR,1); // collision times
     double xM, vM; // Instantaneous position and velocity of the piston
-    Eigen::Array<double, -1, -1> observables(NIter, 2); // tracking some variables across time suhc as xM
-
+    Eigen::Array<double, -1, -1> observables(NIter, 5); // tracking some variables across time suhc as xM
+    double vM_temp;
 
 
     // list of times, positions, velocities and collision times for every particle
@@ -53,6 +53,7 @@ int main(int argc, char** argv){
     vL = Eigen::Array<double, -1, -1>::Random(NL, 1);
     vR = Eigen::Array<double, -1, -1>::Random(NR, 1);
 
+    vM_temp = -0.1;
 
     double t = 0; // time variable
 
@@ -64,6 +65,11 @@ int main(int argc, char** argv){
 
         observables(iter,0) = t;
         observables(iter,1) = xM;
+        observables(iter,2) = (vL * vL).mean();
+        observables(iter,3) = (vR * vR).mean();
+        observables(iter,4) = gamma * (vM-vM_temp);
+
+        vM_temp = vM;
 
         // calculate all the colision times
         col_timesL  = -(xL - 0.0)/vL;       // time until collision with left wall
@@ -74,7 +80,7 @@ int main(int argc, char** argv){
 
 #if LOG > 0
         // Update the state vector
-        state_t.row(iter)(0) = t;
+        state_t.row(iter)(0) = t;observables(iter,1) =
         state_t.row(iter)(1) = xM;
         state_t.row(iter)(2) = vM;
         for(unsigned i = 0; i < NL; i++){
