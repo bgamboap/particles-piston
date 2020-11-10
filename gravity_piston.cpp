@@ -1,9 +1,13 @@
 #include <iostream>
 #include <fstream>
 #include <eigen3/Eigen/Dense>
+#include <iomanip>
+#include <random>
 
 #define inf 999999.9
 #define DEBUG 0
+#define PRECISION 9
+#define KB 1
 //#define LOG 0
 
 // Verificar edge cases desta implementação
@@ -15,8 +19,8 @@ int main(int argc, char** argv){
 
     // Get the command line parameters
     unsigned NL, NR, NIter;
-    double gamma;
-    if(argc != 5){
+    double gamma, TL, TR;
+    if(argc != 7){
         std::cout << "Wrong number of parameters. Exiting.\n";
         exit(1);
     }
@@ -25,6 +29,9 @@ int main(int argc, char** argv){
     NR    = atoi(argv[2]);
     NIter = atoi(argv[3]);
     gamma = atof(argv[4]);
+    TL    = atof(argv[5]);
+    TR    = atof(argv[6]);
+
     std::cout << "Program parameters:\n";
     std::cout << "NL: " << NL << "\n";
     std::cout << "NR: " << NR << "\n";
@@ -46,12 +53,26 @@ int main(int argc, char** argv){
 
 
     // initializations for the velocities and positions
-    xM = 0.1;
-    vM = -0.1;
+    xM = 0.5;
+    vM = 0.;
     xL = (Eigen::Array<double, -1, -1>::Random(NL, 1) + 1.0)/2.0*xM*0.99;
     xR = (Eigen::Array<double, -1, -1>::Random(NR, 1) + 1.0)/2.0*(1-xM)*0.99 + xM;
     vL = Eigen::Array<double, -1, -1>::Random(NL, 1);
     vR = Eigen::Array<double, -1, -1>::Random(NR, 1);
+
+    std::mt19937 rnd;
+    std::normal_distribution<double> normal_dist{0., 1. };
+    std::random_device r;
+    std::seed_seq seed2{r(), r(), r(), r(), r(), r(), r(), r()};
+    rnd.seed(seed2);
+
+    for(unsigned i = 0; i < NL; i++){
+      	vL(i) = std::sqrt(2 * KB * TL)*normal_dist(rnd);
+    } 
+
+    for(unsigned i = 0; i < NR; i++){
+      	vR(i) = std::sqrt(2 * KB * TR)*normal_dist(rnd);
+    } 
 
     vM_temp = -0.1;
 
@@ -80,7 +101,7 @@ int main(int argc, char** argv){
 
 #if LOG > 0
         // Update the state vector
-        state_t.row(iter)(0) = t;observables(iter,1) =
+        state_t.row(iter)(0) = t;
         state_t.row(iter)(1) = xM;
         state_t.row(iter)(2) = vM;
         for(unsigned i = 0; i < NL; i++){
@@ -199,14 +220,14 @@ int main(int argc, char** argv){
     if(DEBUG) std::cout << "Saving to file\n" << std::flush;
     std::ofstream file;
     file.open("log.dat");
-    file << state_t;
+    file << std::setprecision(PRECISION) << state_t;
     file.close();
 #endif
 
     // Save the observables to a file
     std::ofstream file2;
     file2.open("observables.dat");
-    file2 << observables;
+    file2 << std::setprecision(PRECISION) << observables;
     file2.close();
 
     if(DEBUG) std::cout << "Finished\n" << std::flush;
