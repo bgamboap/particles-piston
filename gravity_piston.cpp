@@ -8,6 +8,7 @@
 #define DEBUG 0
 #define PRECISION 9
 #define KB 1
+#define g 10.0
 //#define LOG 0
 
 // Verificar edge cases desta implementação
@@ -37,9 +38,11 @@ int main(int argc, char** argv){
     std::cout << "NR: " << NR << "\n";
     std::cout << "NIter: " << NIter << "\n";
     std::cout << "gamma: " << gamma << "\n";
+    std::cout << "TL: " << TL << "\n";
+    std::cout << "TR: " << TR << "\n";
 
     Eigen::Array<double, -1, -1> xL(NL,1), xR(NR,1), vL(NL,1), vR(NR,1); //positions and velocities
-    Eigen::Array<double, -1, -1> col_timesL(NL,1), col_timesR(NR,1), col_timesPL(NL,1), col_timesPR(NR,1); // collision times
+    Eigen::Array<double, -1, -1> col_timesL(NL,1), col_timesR(NR,1), col_timesPLp(NL,1), col_timesPLm(NL,1), col_timesPRp(NR,1), col_timesPRm(NR,1); // collision times
     double xM, vM; // Instantaneous position and velocity of the piston
     Eigen::Array<double, -1, -1> observables(NIter, 5); // tracking some variables across time suhc as xM
     double vM_temp;
@@ -48,7 +51,7 @@ int main(int argc, char** argv){
     // list of times, positions, velocities and collision times for every particle
 #if LOG > 0
     Eigen::Array<double, -1, -1> state_t;
-    state_t = Eigen::Array<double, -1, -1>::Zero(NIter, 4*(NL + NR) + 3); // State vector for all iterations
+    state_t = Eigen::Array<double, -1, -1>::Zero(NIter, 5*(NL + NR) + 3); // State vector for all iterations
 #endif
 
 
@@ -95,8 +98,42 @@ int main(int argc, char** argv){
         // calculate all the colision times
         col_timesL  = -(xL - 0.0)/vL;       // time until collision with left wall
         col_timesR  =  (1.0 - xR)/vR;       // time until collision with right wall
-        col_timesPL =  (xM - xL)/(vL - vM); // time until collision with piston from the left
-        col_timesPR =  (xM - xR)/(vR - vM); // time until collision with piston from the right
+        //col_timesPL =  (xM - xL)/(vL - vM); // time until collision with piston from the left
+        //col_timesPR =  (xM - xR)/(vR - vM); // time until collision with piston from the right        
+        
+        for(unsigned i = 0; i < NL; i++){
+            double a = - 0.5 * g;
+            double b = - (vM-vL(i));
+            double c = (xL(i)-xM);
+
+            double discrL = b * b - 4 * a * c;
+
+            if(discrL > 0){
+                col_timesPLp(i) = -b + std::pow(discrL, 0.5);
+                col_timesPLm(i) = -b - std::pow(discrL, 0.5);
+            }
+            else{
+                col_timesPLp(i) = inf;
+                col_timesPLm(i) = inf;
+            }
+        }
+
+        for(unsigned i = 0; i < NR; i++){
+            double a = - 0.5 * g;
+            double b = - (vM-vR(i));
+            double c = (xR(i)-xM);
+
+            double discrR = b * b - 4 * a * c;
+
+            if(discrR > 0){
+                col_timesPRp(i) = -b + std::pow(discrR, 0.5);
+                col_timesPRm(i) = -b - std::pow(discrR, 0.5);
+            }
+            else{
+                col_timesPRp(i) = inf;
+                col_timesPRm(i) = inf;
+            }
+        }
 
 
 #if LOG > 0
@@ -108,13 +145,15 @@ int main(int argc, char** argv){
             state_t.row(iter)(3+i*4) = xL(i);
             state_t.row(iter)(4+i*4) = vL(i);
             state_t.row(iter)(5+i*4) = col_timesL(i);
-            state_t.row(iter)(6+i*4) = col_timesPL(i);
+            state_t.row(iter)(6+i*4) = col_timesPLp(i);
+            state_t.row(iter)(7+i*4) = col_timesPLm(i);
         }
         for(unsigned i = NL; i < NL + NR; i++){
             state_t.row(iter)(3+i*4) = xR(i-NL);
             state_t.row(iter)(4+i*4) = vR(i-NL);
             state_t.row(iter)(5+i*4) = col_timesR(i-NL);
-            state_t.row(iter)(6+i*4) = col_timesPR(i-NL);
+            state_t.row(iter)(6+i*4) = col_timesPRp(i-NL);
+            state_t.row(iter)(7+i*4) = col_timesPRm(i-NL);
         }
 #endif
 
@@ -123,9 +162,11 @@ int main(int argc, char** argv){
         if(DEBUG) std::cout << "Setting collision time to infinity for particle that just collided\n" << std::flush;
         switch(flag){
             case 0:{col_timesL(pos)  = inf; break; }
-            case 1:{col_timesPL(pos) = inf; break; }
-            case 2:{col_timesR(pos)  = inf; break; }
-            case 3:{col_timesPR(pos) = inf; break; }
+            case 1:{col_timesPLp(pos) = inf; break; }
+            case 2:{col_timesPLm(pos) = inf; break; }
+            case 3:{col_timesR(pos)  = inf; break; }
+            case 4:{col_timesPRp(pos) = inf; break; }           
+            case 5:{col_timesPRm(pos) = inf; break; }
         }
 
 
@@ -145,13 +186,23 @@ int main(int argc, char** argv){
             }
         }
 
-        // Check for collisions with piston from the left
+        // Check for collisions with piston from the left positive root
         for(unsigned i = 0; i < NL; i++){
-            ti = col_timesPL(i);
+            ti = col_timesPLp(i);
             if(ti < time_til_col && ti > 0){
                 time_til_col = ti;
                 pos = i;
                 flag = 1;
+            }
+        }
+
+        // Check for collisions with piston from the left negative root
+        for(unsigned i = 0; i < NL; i++){
+            ti = col_timesPLp(i);
+            if(ti < time_til_col && ti > 0){
+                time_til_col = ti;
+                pos = i;
+                flag = 2;
             }
         }
 
@@ -161,19 +212,30 @@ int main(int argc, char** argv){
             if(ti < time_til_col && ti > 0){
                 time_til_col = ti;
                 pos = i;
-                flag = 2;
-            }
-        }
-
-        // Check for collisions with piston from the right
-        for(unsigned i = 0; i < NR; i++){
-            ti = col_timesPR(i);
-            if(ti < time_til_col && ti > 0){
-                time_til_col = ti;
-                pos = i;
                 flag = 3;
             }
         }
+
+        // Check for collisions with piston from the right positive root
+        for(unsigned i = 0; i < NR; i++){
+            ti = col_timesPRp(i);
+            if(ti < time_til_col && ti > 0){
+                time_til_col = ti;
+                pos = i;
+                flag = 4;
+            }
+        }
+
+        // Check for collisions with piston from the right negative root
+        for(unsigned i = 0; i < NR; i++){
+            ti = col_timesPRp(i);
+            if(ti < time_til_col && ti > 0){
+                time_til_col = ti;
+                pos = i;
+                flag = 5;
+            }
+        }
+        
 
         if(DEBUG) std::cout << t << " " << time_til_col << " " << pos << " " << flag << "\n" << std::flush;
 
