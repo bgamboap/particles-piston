@@ -102,15 +102,15 @@ int main(int argc, char** argv){
         //col_timesPR =  (xM - xR)/(vR - vM); // time until collision with piston from the right        
         
         for(unsigned i = 0; i < NL; i++){
-            double a = - 0.5 * g;
+            double a =  0.5 * g;
             double b = - (vM-vL(i));
             double c = (xL(i)-xM);
 
             double discrL = b * b - 4 * a * c;
 
             if(discrL > 0){
-                col_timesPLp(i) = -b + std::pow(discrL, 0.5);
-                col_timesPLm(i) = -b - std::pow(discrL, 0.5);
+                col_timesPLp(i) = (-b + std::pow(discrL, 0.5))/2.0/a;
+                col_timesPLm(i) = (-b - std::pow(discrL, 0.5))/2.0/a;
             }
             else{
                 col_timesPLp(i) = inf;
@@ -119,15 +119,15 @@ int main(int argc, char** argv){
         }
 
         for(unsigned i = 0; i < NR; i++){
-            double a = - 0.5 * g;
+            double a = 0.5 * g;
             double b = - (vM-vR(i));
             double c = (xR(i)-xM);
 
             double discrR = b * b - 4 * a * c;
 
             if(discrR > 0){
-                col_timesPRp(i) = -b + std::pow(discrR, 0.5);
-                col_timesPRm(i) = -b - std::pow(discrR, 0.5);
+                col_timesPRp(i) = (-b + std::pow(discrR, 0.5))/2.0/a;
+                col_timesPRm(i) = (-b - std::pow(discrR, 0.5))/2.0/a;
             }
             else{
                 col_timesPRp(i) = inf;
@@ -142,18 +142,18 @@ int main(int argc, char** argv){
         state_t.row(iter)(1) = xM;
         state_t.row(iter)(2) = vM;
         for(unsigned i = 0; i < NL; i++){
-            state_t.row(iter)(3+i*4) = xL(i);
-            state_t.row(iter)(4+i*4) = vL(i);
-            state_t.row(iter)(5+i*4) = col_timesL(i);
-            state_t.row(iter)(6+i*4) = col_timesPLp(i);
-            state_t.row(iter)(7+i*4) = col_timesPLm(i);
+            state_t.row(iter)(3+i*5) = xL(i);
+            state_t.row(iter)(4+i*5) = vL(i);
+            state_t.row(iter)(5+i*5) = col_timesL(i);
+            state_t.row(iter)(6+i*5) = col_timesPLp(i);
+            state_t.row(iter)(7+i*5) = col_timesPLm(i);
         }
         for(unsigned i = NL; i < NL + NR; i++){
-            state_t.row(iter)(3+i*4) = xR(i-NL);
-            state_t.row(iter)(4+i*4) = vR(i-NL);
-            state_t.row(iter)(5+i*4) = col_timesR(i-NL);
-            state_t.row(iter)(6+i*4) = col_timesPRp(i-NL);
-            state_t.row(iter)(7+i*4) = col_timesPRm(i-NL);
+            state_t.row(iter)(3+i*5) = xR(i-NL);
+            state_t.row(iter)(4+i*5) = vR(i-NL);
+            state_t.row(iter)(5+i*5) = col_timesR(i-NL);
+            state_t.row(iter)(6+i*5) = col_timesPRp(i-NL);
+            state_t.row(iter)(7+i*5) = col_timesPRm(i-NL);
         }
 #endif
 
@@ -161,12 +161,12 @@ int main(int argc, char** argv){
         // a very large collision time after the calculation
         if(DEBUG) std::cout << "Setting collision time to infinity for particle that just collided\n" << std::flush;
         switch(flag){
-            case 0:{col_timesL(pos)  = inf; break; }
-            case 1:{col_timesPLp(pos) = inf; break; }
+            case 0:{col_timesL(pos)   = inf; break; }
+            case 1:{col_timesPLm(pos) = inf; break; }
             case 2:{col_timesPLm(pos) = inf; break; }
-            case 3:{col_timesR(pos)  = inf; break; }
-            case 4:{col_timesPRp(pos) = inf; break; }           
-            case 5:{col_timesPRm(pos) = inf; break; }
+            case 3:{col_timesR(pos)   = inf; break; }
+            case 4:{col_timesPRp(pos) = inf; col_timesPRm(pos) = inf; break; }           
+            case 5:{col_timesPRm(pos) = inf; col_timesPRp(pos) = inf; break; }
         }
 
 
@@ -198,7 +198,7 @@ int main(int argc, char** argv){
 
         // Check for collisions with piston from the left negative root
         for(unsigned i = 0; i < NL; i++){
-            ti = col_timesPLp(i);
+            ti = col_timesPLm(i);
             if(ti < time_til_col && ti > 0){
                 time_til_col = ti;
                 pos = i;
@@ -228,7 +228,7 @@ int main(int argc, char** argv){
 
         // Check for collisions with piston from the right negative root
         for(unsigned i = 0; i < NR; i++){
-            ti = col_timesPRp(i);
+            ti = col_timesPRm(i);
             if(ti < time_til_col && ti > 0){
                 time_til_col = ti;
                 pos = i;
@@ -243,7 +243,8 @@ int main(int argc, char** argv){
         // Evolve the system in time until the time of the colision
         xL = xL + vL*time_til_col;
         xR = xR + vR*time_til_col;
-        xM = xM + vM*time_til_col;
+        xM = xM + vM*time_til_col - 0.5*g*time_til_col*time_til_col;
+        vM = vM - g*time_til_col;
 
         // One of the particles will reverse its velocity
         // This particle should NOT be updated in the next iteration because its col time will be zero
@@ -253,7 +254,7 @@ int main(int argc, char** argv){
         }
 
         // collision with piston from the left
-        if(flag == 1){
+        if(flag == 1 || flag ==2){
             double den = 1.0 + gamma;
             double vMtemp = vM;
             double vLtemp = vL(pos);
@@ -262,18 +263,20 @@ int main(int argc, char** argv){
         }
 
         // right wall collision
-        if(flag == 2){
+        if(flag == 3){
             vR(pos) *= -1; 
         }
 
         // collision with piston from the right
-        if(flag == 3){
+        if(flag == 4 || flag == 5){
             double den = 1.0 + gamma;
             double vMtemp = vM;
             double vRtemp = vR(pos);
             vM      = (1.0 - gamma)/den*vMtemp +       2*gamma/den*vRtemp;
             vR(pos) =           2.0/den*vMtemp - (1.0 - gamma)/den*vRtemp;
         }
+
+
         t  += time_til_col;
     }
 
