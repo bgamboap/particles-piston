@@ -1,50 +1,25 @@
 #include <iostream>
 #include <fstream>
-#include <eigen3/Eigen/Dense>
 #include <iomanip>
 #include <random>
+#include "gravity_piston.hpp"
 
 #define inf 999999.9
-#define DEBUG 0
-#define PRECISION 9
 #define KB 1
 #define g 10.0
-//#define LOG 0
 
 // Verificar edge cases desta implementação
 //
 // Compilar com 
-// g++ -Wall -fopenmp -I/usr/include/eigen3 -DLOG=0 gravity_piston.cpp -o piston
+// g++ -O3 -Wall -fopenmp -I/usr/include/eigen3 -DLOG=0 gravity_piston.cpp -o piston
 
-int main(int argc, char** argv){
+Eigen::Array<double, -1, -1> gravity_piston(unsigned NL, unsigned NR, unsigned NIter, double gamma, double TL, double TR, unsigned identifier){
 
     // Get the command line parameters
-    unsigned NL, NR, NIter;
-    double gamma, TL, TR;
-    if(argc != 7){
-        std::cout << "Wrong number of parameters. Exiting.\n";
-        exit(1);
-    }
-
-    NL    = atoi(argv[1]);
-    NR    = atoi(argv[2]);
-    NIter = atoi(argv[3]);
-    gamma = atof(argv[4]);
-    TL    = atof(argv[5]);
-    TR    = atof(argv[6]);
-
-    std::cout << "Program parameters:\n";
-    std::cout << "NL: " << NL << "\n";
-    std::cout << "NR: " << NR << "\n";
-    std::cout << "NIter: " << NIter << "\n";
-    std::cout << "gamma: " << gamma << "\n";
-    std::cout << "TL: " << TL << "\n";
-    std::cout << "TR: " << TR << "\n";
-
     Eigen::Array<double, -1, -1> xL(NL,1), xR(NR,1), vL(NL,1), vR(NR,1); //positions and velocities
     Eigen::Array<double, -1, -1> col_timesL(NL,1), col_timesR(NR,1), col_timesPLp(NL,1), col_timesPLm(NL,1), col_timesPRp(NR,1), col_timesPRm(NR,1); // collision times
     double xM, vM; // Instantaneous position and velocity of the piston
-    Eigen::Array<double, -1, -1> observables(NIter, 5); // tracking some variables across time suhc as xM
+    Eigen::Array<double, -1, -1> observables(NIter, 5); // tracking some variables over time, such as xM
     double vM_temp;
 
 
@@ -85,7 +60,7 @@ int main(int argc, char** argv){
     unsigned pos = -1;    // position of the particle that will collide
 
     for(unsigned iter = 0; iter < NIter; iter++){
-        if(DEBUG) std::cout << "ITERATION: " << iter << "\n" << std::flush;
+        if(GP_DEBUG) std::cout << "ITERATION: " << iter << "\n" << std::flush;
 
         observables(iter,0) = t;
         observables(iter,1) = xM;
@@ -159,7 +134,7 @@ int main(int argc, char** argv){
 
         // If the particle just colided, it should not be updated, so I simply give it
         // a very large collision time after the calculation
-        if(DEBUG) std::cout << "Setting collision time to infinity for particle that just collided\n" << std::flush;
+        if(GP_DEBUG) std::cout << "Setting collision time to infinity for particle that just collided\n" << std::flush;
         switch(flag){
             case 0:{col_timesL(pos)   = inf; break; }
             case 1:{col_timesPLm(pos) = inf; break; }
@@ -171,7 +146,7 @@ int main(int argc, char** argv){
 
 
         // Finding the smallest next collision time
-        if(DEBUG) std::cout << "Finding next collision time\n" << std::flush;
+        if(GP_DEBUG) std::cout << "Finding next collision time\n" << std::flush;
 
         double time_til_col = inf;  // time until the next collision
         double ti;                  // temporary variable
@@ -237,7 +212,7 @@ int main(int argc, char** argv){
         }
         
 
-        if(DEBUG) std::cout << t << " " << time_til_col << " " << pos << " " << flag << "\n" << std::flush;
+        if(GP_DEBUG) std::cout << t << " " << time_til_col << " " << pos << " " << flag << "\n" << std::flush;
 
 
         // Evolve the system in time until the time of the colision
@@ -275,26 +250,26 @@ int main(int argc, char** argv){
             vM      = (1.0 - gamma)/den*vMtemp +       2*gamma/den*vRtemp;
             vR(pos) =           2.0/den*vMtemp - (1.0 - gamma)/den*vRtemp;
         }
-
-
         t  += time_til_col;
     }
 
 #if LOG > 0
     // Save the log data to a file
-    if(DEBUG) std::cout << "Saving to file\n" << std::flush;
+    if(GP_DEBUG) std::cout << "Saving to file\n" << std::flush;
     std::ofstream file;
-    file.open("log.dat");
-    file << std::setprecision(PRECISION) << state_t;
+    std::string logname = "log" + std::to_string(identifier) + ".dat";
+    file.open(logname);
+    file << std::setprecision(9) << state_t;
     file.close();
 #endif
 
     // Save the observables to a file
-    std::ofstream file2;
-    file2.open("observables.dat");
-    file2 << std::setprecision(PRECISION) << observables;
-    file2.close();
+    //std::ofstream file2;
+    //file2.open("observables.dat");
+    //file2 << std::setprecision(PRECISION) << observables;
+    //file2.close();
 
-    if(DEBUG) std::cout << "Finished\n" << std::flush;
-    return 0;
+    if(GP_DEBUG) std::cout << "Finished\n" << std::flush;
+    //return 0;
+    return observables;
 }
