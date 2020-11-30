@@ -11,7 +11,7 @@
 
 Eigen::Array<double, -1, -1> uniformize(Eigen::Array<double, -1, -1> arr, double Tmax, double dt){
     //std::cout <<"entered av\n"<<std::flush;
-    unsigned N = arr.rows();
+    //unsigned N = arr.rows();
     unsigned NT = unsigned(Tmax/dt + 0.000001) + 1;
     Eigen::Array<int, -1, -1> first_in_bin(1, NT);
     first_in_bin = -1; // initialize to impossible values
@@ -84,13 +84,13 @@ int main(int argc, char** argv){
         exit(1);
     }
 
-    NL      = atoi(argv[1]);
-    NR      = atoi(argv[2]);
-    NIter   = atoi(argv[3]);
-    gamma   = atof(argv[4]);
-    TL      = atof(argv[5]);
-    TR      = atof(argv[6]);
-    Nmedias = atoi(argv[7]);
+    NL      = atoi(argv[1]); // number of particles in the left chamber of the piston
+    NR      = atoi(argv[2]); // number of particles in the right chamber of the piston
+    NIter   = atoi(argv[3]); // number of iterations we want, or number of collisions
+    gamma   = atof(argv[4]); // mass of one particle divided by the mass of the wall
+    TL      = atof(argv[5]); // initial temperature of the left chamber
+    TR      = atof(argv[6]); // initial temperature of the right chamber
+    Nmedias = atoi(argv[7]); // unique identifier assigned by the paralelization
 
     std::cout << "Program parameters:\n";
     std::cout << "NL:      " << NL      << "\n";
@@ -103,10 +103,11 @@ int main(int argc, char** argv){
 
 
     //omp_set_num_threads(2);
-    double dt = 0.2;
-    double Tmax = 1.0;
+    //double dt = 0.2;
+    //double Tmax = 1.0;
     //av_iter = Tmax/dt;
-    Eigen::Array<double, -1, -1> global_arr(NIter, 5);
+    //Eigen::Array<double, -1, -1> global_arr(NIter, 5);
+    unsigned index = 0;
 #pragma omp parallel
 {
 #pragma omp for
@@ -116,18 +117,19 @@ int main(int argc, char** argv){
 #pragma omp critical
     {
         if(M_DEBUG) std::cout << "id=" << n << " critical\n" << std::flush;
-        global_arr += arr;
-        uniform = uniformize(arr, Tmax, dt);
+        // Save the observables to a file
+        std::ofstream file2;
+        std::string filename;
+        filename = std::string("observables") + std::to_string(index) + ".dat";
+        file2.open(filename);
+        file2 << std::setprecision(PRECISION) << arr;
+        file2.close();
+        index++;
     }
     }
-#pragma omp barrier
-    global_arr /= Nmedias;
 }
 
-    // Save the observables to a file
-    std::ofstream file2;
-    file2.open("observables.dat");
-    file2 << std::setprecision(PRECISION) << global_arr;
-    file2.close();
+
+
     return 0;
 }

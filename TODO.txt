@@ -1,5 +1,0 @@
-1. Implementar gravidade no pistao
-2. Registar transferencia de momento no array 'observables'
-3. Registar temperatura no array 'observables'
-4. Inicializar as velocidades de acordo com a distribuição de Maxwell-Boltzmann
-5. Testar mais extensivamente
