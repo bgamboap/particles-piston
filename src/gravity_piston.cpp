@@ -27,7 +27,6 @@ Eigen::Array<double, -1, -1> gravity_piston(unsigned NL, unsigned NR, unsigned N
 
     double xM, vM; // Instantaneous position and velocity of the piston
     Eigen::Array<double, -1, -1> observables(NIter, 5); // Tracking some variables over time, such as xM
-    double vM_temp;
 
 
     // List of times, positions, velocities and collision times for every particle.
@@ -64,7 +63,8 @@ Eigen::Array<double, -1, -1> gravity_piston(unsigned NL, unsigned NR, unsigned N
       	vR(i) = std::sqrt(2 * KB * TR)*normal_dist(rnd);
     } 
 
-    vM_temp = -0.1; // velocity of the piston in the previous colision
+    double vM_temp;
+    vM_temp = vM; // velocity of the piston before the collision
 
     double t = 0; // time variable
 
@@ -80,7 +80,6 @@ Eigen::Array<double, -1, -1> gravity_piston(unsigned NL, unsigned NR, unsigned N
         observables(iter,3) = (vR * vR).mean(); // Measure of the average kinetic energy of the right gas
         observables(iter,4) = gamma * (vM-vM_temp); // Measure of the momentum transfered 
 
-        vM_temp = vM;
 
         // calculate all the times until collision with left and right walls
         col_timesL  = -(xL - 0.0)/vL; // time until collision with left wall
@@ -254,6 +253,8 @@ Eigen::Array<double, -1, -1> gravity_piston(unsigned NL, unsigned NR, unsigned N
         xR = xR + vR*time_til_col;
         xM = xM + vM*time_til_col - 0.5*g*time_til_col*time_til_col;
         vM = vM - g*time_til_col;
+
+        vM_temp = vM; // Velocity of the piston before the collision
 
         // Perform the collision according to the type of collision that will happen
         // The velocities have to be updated
