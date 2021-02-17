@@ -5,13 +5,11 @@
 #include "gravity_piston.hpp"
 
 #define inf 999999.9
-#define KB 1
-#define g 10.0
 
 // Compilar com 
 // g++ -O3 -Wall -fopenmp -I/usr/include/eigen3 -DLOG=0 gravity_piston.cpp -o piston
 
-Eigen::Array<double, -1, -1> gravity_piston(unsigned NL, unsigned NR, unsigned NIter, double gamma, double TL, double TR, unsigned identifier){
+Eigen::Array<double, -1, -1> gravity_piston(unsigned NL, unsigned NR, unsigned NIter, double gamma, double betat_L, double betat_R, unsigned identifier){
     // Arguments to this function:
     //         NL - number of particles in the left chamber of the piston
     //         NR - number of particles in the right chamber of the piston
@@ -56,11 +54,11 @@ Eigen::Array<double, -1, -1> gravity_piston(unsigned NL, unsigned NR, unsigned N
     rnd.seed(seed2);
 
     for(unsigned i = 0; i < NL; i++){
-      	vL(i) = std::sqrt(2 * KB * TL)*normal_dist(rnd);
+      	vL(i) = normal_dist(rnd)/std::sqrt(2*betat_L*gamma);
     } 
 
     for(unsigned i = 0; i < NR; i++){
-      	vR(i) = std::sqrt(2 * KB * TR)*normal_dist(rnd);
+      	vR(i) = normal_dist(rnd)/std::sqrt(2*betat_R*gamma);
     } 
 
     double vM_temp;
@@ -89,7 +87,7 @@ Eigen::Array<double, -1, -1> gravity_piston(unsigned NL, unsigned NR, unsigned N
         // This requires solving a quadratic equation which may have no solution. In that case
         // the time until collision is set to infinity
         for(unsigned i = 0; i < NL; i++){
-            double a =  0.5 * g;
+            double a =  0.25;
             double b = - (vM-vL(i));
             double c = (xL(i)-xM);
 
@@ -107,7 +105,7 @@ Eigen::Array<double, -1, -1> gravity_piston(unsigned NL, unsigned NR, unsigned N
 
         // Calculate all the collision times with piston from the right
         for(unsigned i = 0; i < NR; i++){
-            double a = 0.5 * g;
+            double a = 0.25;
             double b = - (vM-vR(i));
             double c = (xR(i)-xM);
 
@@ -251,8 +249,8 @@ Eigen::Array<double, -1, -1> gravity_piston(unsigned NL, unsigned NR, unsigned N
         // Evolve the system in time until the time of the colision
         xL = xL + vL*time_til_col;
         xR = xR + vR*time_til_col;
-        xM = xM + vM*time_til_col - 0.5*g*time_til_col*time_til_col;
-        vM = vM - g*time_til_col;
+        xM = xM + vM*time_til_col - 0.25*time_til_col*time_til_col;
+        vM = vM - 0.5*time_til_col;
 
         vM_temp = vM; // Velocity of the piston before the collision
 

@@ -12,7 +12,7 @@
 int main(int argc, char** argv){
 
     unsigned NL, NR, NIter, Nmedias;
-    double gamma, TL, TR;
+    double gamma, betat_R, betat_L;
     if(argc != 8){
         std::cout << "Wrong number of parameters. Exiting.\n";
         exit(1);
@@ -22,8 +22,8 @@ int main(int argc, char** argv){
     NR      = atoi(argv[2]); // number of particles in the right chamber of the piston
     NIter   = atoi(argv[3]); // number of iterations we want, or number of collisions
     gamma   = atof(argv[4]); // mass of one particle divided by the mass of the wall
-    TL      = atof(argv[5]); // initial temperature of the left chamber
-    TR      = atof(argv[6]); // initial temperature of the right chamber
+    betat_L = atof(argv[5]); // initial temperature of the left chamber
+    betat_R = atof(argv[6]); // initial temperature of the right chamber
     Nmedias = atoi(argv[7]); // unique identifier assigned by the paralelization
 
     std::cout << "Program parameters:\n";
@@ -31,8 +31,8 @@ int main(int argc, char** argv){
     std::cout << "NR:      " << NR      << "\n";
     std::cout << "NIter:   " << NIter   << "\n";
     std::cout << "gamma:   " << gamma   << "\n";
-    std::cout << "TL:      " << TL      << "\n";
-    std::cout << "TR:      " << TR      << "\n";
+    std::cout << "betatil_L:      " << betat_L      << "\n";
+    std::cout << "betatil_R:      " << betat_R      << "\n";
     std::cout << "Nmedias: " << Nmedias << "\n";
 
 
@@ -42,7 +42,7 @@ int main(int argc, char** argv){
 #pragma omp for
     for(unsigned n = 0; n < Nmedias; n++){
         Eigen::Array<double, -1, -1> arr;
-        arr = gravity_piston(NL, NR, NIter, gamma, TL, TR, n);
+        arr = gravity_piston(NL, NR, NIter, gamma, betat_L, betat_R, n);
 #pragma omp critical
     {
         if(M_DEBUG) std::cout << "id=" << n << " critical\n" << std::flush;
