@@ -9,7 +9,7 @@
 // Compilar com 
 // g++ -O3 -Wall -fopenmp -I/usr/include/eigen3 -DLOG=0 gravity_piston.cpp -o piston
 
-Eigen::Array<double, -1, -1> gravity_piston(unsigned NL, unsigned NR, unsigned NIter, double gamma, double betat_L, double betat_R, unsigned identifier){
+Eigen::Array<double, -1, -1> gravity_piston(unsigned NL, unsigned NR, unsigned NIter, double gamma, double betat_L, double betat_R, double xM_0, unsigned identifier){
     // Arguments to this function:
     //         NL - number of particles in the left chamber of the piston
     //         NR - number of particles in the right chamber of the piston
@@ -17,6 +17,7 @@ Eigen::Array<double, -1, -1> gravity_piston(unsigned NL, unsigned NR, unsigned N
     //      gamma - mass of one particle divided by the mass of the wall
     //         TL - initial temperature of the left chamber
     //         TR - initial temperature of the right chamber
+    //       xM_0 - initial position of the piston 
     // identifier - unique identifier assigned by the paralelization
 
     Eigen::Array<double, -1, -1> xL(NL,1), xR(NR,1), vL(NL,1), vR(NR,1); // Positions and velocities of the particles
@@ -37,7 +38,7 @@ Eigen::Array<double, -1, -1> gravity_piston(unsigned NL, unsigned NR, unsigned N
 
 
     // Initializing positions
-    xM = 0.5; // piston starts in the middle
+    xM = xM_0; // initial position of the piston
     xL = (Eigen::Array<double, -1, -1>::Random(NL, 1) + 1.0)/2.0*xM*0.99;
     xR = (Eigen::Array<double, -1, -1>::Random(NR, 1) + 1.0)/2.0*(1-xM)*0.99 + xM;
 

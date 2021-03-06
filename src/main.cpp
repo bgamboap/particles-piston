@@ -12,8 +12,8 @@
 int main(int argc, char** argv){
 
     unsigned NL, NR, NIter, Nmedias;
-    double gamma, betat_R, betat_L;
-    if(argc != 8){
+    double gamma, betat_R, betat_L, xM_0;
+    if(argc != 9){
         std::cout << "Wrong number of parameters. Exiting.\n";
         exit(1);
     }
@@ -24,16 +24,18 @@ int main(int argc, char** argv){
     gamma   = atof(argv[4]); // mass of one particle divided by the mass of the wall
     betat_L = atof(argv[5]); // initial temperature of the left chamber
     betat_R = atof(argv[6]); // initial temperature of the right chamber
-    Nmedias = atoi(argv[7]); // unique identifier assigned by the paralelization
+    xM_0    = atof(argv[7]); // initial position of the piston
+    Nmedias = atoi(argv[8]); // unique identifier assigned by the paralelization
 
     std::cout << "Program parameters:\n";
-    std::cout << "NL:      " << NL      << "\n";
-    std::cout << "NR:      " << NR      << "\n";
-    std::cout << "NIter:   " << NIter   << "\n";
-    std::cout << "gamma:   " << gamma   << "\n";
-    std::cout << "betatil_L:      " << betat_L      << "\n";
-    std::cout << "betatil_R:      " << betat_R      << "\n";
-    std::cout << "Nmedias: " << Nmedias << "\n";
+    std::cout << "NL:        " << NL      << "\n";
+    std::cout << "NR:        " << NR      << "\n";
+    std::cout << "NIter:     " << NIter   << "\n";
+    std::cout << "gamma:     " << gamma   << "\n";
+    std::cout << "betatil_L: " << betat_L << "\n";
+    std::cout << "betatil_R: " << betat_R << "\n";
+    std::cout << "xM_0:      " << xM_0    << "\n";
+    std::cout << "Nmedias:   " << Nmedias << "\n";
 
 
     unsigned index = 0;
@@ -42,7 +44,7 @@ int main(int argc, char** argv){
 #pragma omp for
     for(unsigned n = 0; n < Nmedias; n++){
         Eigen::Array<double, -1, -1> arr;
-        arr = gravity_piston(NL, NR, NIter, gamma, betat_L, betat_R, n);
+        arr = gravity_piston(NL, NR, NIter, gamma, betat_L, betat_R, xM_0, n);
 #pragma omp critical
     {
         if(M_DEBUG) std::cout << "id=" << n << " critical\n" << std::flush;
